@@ -8,23 +8,23 @@
 #include <QDebug>
 
 Stick::Stick(QWidget *parent)
-    : QWidget(parent)
+    : QWidget(parent),
+      m_centerBigCircle(width() / 2, height() / 2),
+      m_centerSmallCircle(width() / 2, height() / 2),
+      m_color(Dark),
+      m_radiusBigCircle(50),
+      m_radiusSmallCircle(25),
+      m_radiusCatching(70),
+      m_textureBigCircle(":/textures/Textures/shadedDark07.png"),
+      m_textureSmallCircle(":/textures/Textures/shadedDark01.png"),
+      m_isMoving(false),
+      m_margins(m_radiusSmallCircle, m_radiusSmallCircle, m_radiusSmallCircle, m_radiusSmallCircle)
 {
-    m_centerBigCircle = QPoint(0, 0);
-    m_centerSmallCircle = QPoint(0, 0);
-    m_stickArea = QRect(0, 0, width(), height());
-
-    m_radiusBigCircle = 50;
-    m_radiusSmallCircle = 25;
-    m_radiusCatching = 70;
-
-    m_textureBigCircle = QPixmap("://Textures/shadedDark07.png");
-    m_textureSmallCircle = QPixmap("://Textures/shadedDark01.png");
-
-    m_resizedTextureBigCircle = m_textureBigCircle;
-    m_resizedTextureSmallCircle = m_textureSmallCircle;
-
-    m_isMoving = false;
+    updateAreaStick();
+    resizeTextures();
+    setMinimumSize(m_margins.left() + m_margins.right() + 2 * m_radiusBigCircle,
+                   m_margins.top() + m_margins.bottom() + 2 * m_radiusBigCircle);
+    updateMinimumSize();
 }
 
 Stick::~Stick()
@@ -32,16 +32,92 @@ Stick::~Stick()
 
 }
 
+Stick::Color Stick::getColor() const
+{
+    return m_color;
+}
+
+void Stick::setColor(const Stick::Color &color)
+{
+    if(m_color == color)
+        return;
+    m_color = color;
+    switch (m_color) {
+    case Dark:
+    {
+        m_textureBigCircle = QPixmap(":/textures/Textures/shadedDark07.png");
+        m_textureSmallCircle = QPixmap(":/textures/Textures/shadedDark01.png");
+        break;
+    }
+    case Light:
+    {
+        m_textureBigCircle = QPixmap(":/textures/Textures/shadedLight07.png");
+        m_textureSmallCircle = QPixmap(":/textures/Textures/shadedLight01.png");
+        break;
+    }
+    default:
+        break;
+    }
+    update();
+}
+
+QMargins Stick::getMargins() const
+{
+    return m_margins;
+}
+
+void Stick::setMargins(const QMargins &margins)
+{
+    m_margins = margins;
+    updateAreaStick();
+    update();
+    updateMinimumSize();
+}
+
+
+int Stick::getRadiusBigCircle() const
+{
+    return m_radiusBigCircle;
+}
+
+void Stick::setRadiusBigCircle(int radiusBigCircle)
+{
+    if(radiusBigCircle <= 0)
+        return;
+    m_radiusBigCircle = radiusBigCircle;
+    resizeTextures();
+    update();
+}
+
+int Stick::getRadiusSmallCircle() const
+{
+    return m_radiusSmallCircle;
+}
+
+void Stick::setRadiusSmallCircle(int radiusSmallCircle)
+{
+    if(radiusSmallCircle <= 0)
+        return;
+    m_radiusSmallCircle = radiusSmallCircle;
+    resizeTextures();
+    update();
+}
+
 void Stick::resizeEvent(QResizeEvent *)
 {
-    m_stickArea = QRect(0, 0, width(), height());
+    resizeTextures();
+    m_centerBigCircle = QPoint(width()/2, height()/2);
+    m_centerSmallCircle = QPoint(width()/2, height()/2);
+}
 
+int Stick::getRadiusCatching() const
+{
+    return m_radiusCatching;
+}
 
-    m_resizedTextureBigCircle = m_textureBigCircle.scaled(QSize(2 * m_radiusBigCircle, 2 * m_radiusBigCircle));
-    m_resizedTextureSmallCircle = m_textureSmallCircle.scaled(QSize(2 * m_radiusSmallCircle, 2 * m_radiusSmallCircle));
-
-    m_centerBigCircle = QPoint(m_stickArea.width()/2, m_stickArea.height()/2);
-    m_centerSmallCircle = QPoint(m_stickArea.width()/2, m_stickArea.height()/2);
+void Stick::setRadiusCatching(int radiusCatching)
+{
+    m_radiusCatching = radiusCatching;
 }
 
 void Stick::paintEvent(QPaintEvent *)
@@ -58,6 +134,7 @@ void Stick::paintEvent(QPaintEvent *)
 
 void Stick::mousePressEvent(QMouseEvent *event)
 {
+    //проверка на попадание клика в область захвата
     if (QLineF(event->pos(), m_centerBigCircle).length() < m_radiusCatching)
     {
         m_isMoving = true;
@@ -75,8 +152,7 @@ void Stick::mouseMoveEvent(QMouseEvent *event)
 
 void Stick::mouseReleaseEvent(QMouseEvent *)
 {
-    m_centerBigCircle = QPoint(m_stickArea.width()/2,
-                               m_stickArea.height()/2);
+    m_centerBigCircle = QPoint(width()/2, height()/2);
     m_isMoving = false;
     moveCircle(m_centerBigCircle);
 }
@@ -90,6 +166,30 @@ void Stick::moveCircle(const QPoint &point)
         range = 1;
     m_centerSmallCircle = QPoint(m_centerBigCircle.x() + qCos(anglePoint) * range * m_radiusBigCircle,
                                  m_centerBigCircle.y() - qSin(anglePoint) * range * m_radiusBigCircle);
+    emit newValue(range, anglePoint);
     update();
-    qDebug() << range << anglePoint;
 }
+
+void Stick::resizeTextures()
+{
+    m_resizedTextureBigCircle = m_textureBigCircle.scaled(QSize(2 * m_radiusBigCircle,
+                                                                2 * m_radiusBigCircle),
+                                                          Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    m_resizedTextureSmallCircle = m_textureSmallCircle.scaled(QSize(2 * m_radiusSmallCircle,
+                                                                    2 * m_radiusSmallCircle),
+                                                              Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+}
+
+void Stick::updateAreaStick()
+{
+    m_areaStick = QRect(m_margins.left(), m_margins.top(),
+                        width() + m_margins.right(),
+                        height() + m_margins.bottom());
+}
+
+void Stick::updateMinimumSize()
+{
+    setMinimumSize(m_margins.left() + m_margins.right() + 2 * m_radiusBigCircle,
+                   m_margins.top() + m_margins.bottom() + 2 * m_radiusBigCircle);
+}
+
