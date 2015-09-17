@@ -18,4 +18,5 @@ SOURCES += main.cpp\
 HEADERS  += stick.h
 
 RESOURCES += \
-    textures.qrc
+    textures.qrc \
+    res.qrc
